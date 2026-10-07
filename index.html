@@ -73,27 +73,28 @@
     const EST_CONTACTO = { por_contactar: 'Por contactar', contactado: 'Contactado', respondio: 'Respondió', interesado: 'Interesado', no_interesa: 'No le interesa', baja: 'Baja (no escribir más)' };
     const EST_CORREO = { borrador: 'Borrador', enviado: 'Enviado', respondido: 'Respondido', pendiente_ti: 'Necesita tu respuesta', recibido: 'Recibido' };
     let vista = 'resumen', filtro = 'todos';
-    let contactos = [], correos = [], espera = [];
+    let contactos = [], correos = [], espera = [], telegram = [];
 
     const escapar = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const fecha = (f) => f ? new Date(f).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '';
     const avisar = (t) => { $('aviso').textContent = t || ''; $('aviso').hidden = !t; };
 
     async function cargar() {
-      const [a, b, c] = await Promise.all([
+      const [a, b, c, d] = await Promise.all([
         sb.from('ventas_contactos').select('*').order('creado_en', { ascending: false }),
         sb.from('ventas_correos').select('*').order('creado_en', { ascending: false }),
         sb.from('lista_espera').select('*').order('fecha', { ascending: false }),
+        sb.from('ventas_telegram').select('*').order('creado_en', { ascending: false }),
       ]);
-      const err = a.error || b.error || c.error;
+      const err = a.error || b.error || c.error || d.error;
       if (err) avisar('No se pudieron cargar los datos: ' + err.message); else avisar('');
-      contactos = a.data || []; correos = b.data || []; espera = c.data || [];
+      contactos = a.data || []; correos = b.data || []; espera = c.data || []; telegram = d.data || [];
       $('cargando').hidden = true; $('contenido').hidden = false;
       pintar();
     }
 
     function pestanas() {
-      const t = [['resumen', '📊 Resumen'], ['correos', `✉️ Correos (${correos.length})`], ['contactos', `🏢 Contactos (${contactos.length})`], ['espera', `📬 Lista de espera (${espera.length})`]];
+      const t = [['resumen', '📊 Resumen'], ['correos', `✉️ Correos (${correos.length})`], ['contactos', `🏢 Contactos (${contactos.length})`], ['espera', `📬 Lista de espera (${espera.length})`], ['telegram', '✈️ Telegram']];
       return `<div class="pestanas">${t.map(([k, n]) => `<button class="${k === vista ? 'activa' : ''}" data-accion="vista" data-vista="${k}">${n}</button>`).join('')}</div>`;
     }
 
@@ -154,6 +155,22 @@
         ${filas || '<p class="vacio">Todavía no hay contactos. Pepo los irá apuntando aquí.</p>'}`;
     }
 
+    function htmlTelegram() {
+      const resumenes = telegram.filter((t) => t.tipo === 'resumen' && t.suscriptores != null);
+      const ultimo = resumenes[0], anterior = resumenes[1];
+      const msgs = telegram.filter((t) => t.tipo === 'mensaje' && t.estado !== 'borrado');
+      const dif = ultimo && anterior ? ultimo.suscriptores - anterior.suscriptores : null;
+      const kpi = (num, txt, color) => `<div class="kpi" style="border-color:${color}"><b>${num}</b><span>${txt}</span></div>`;
+      const lista = msgs.map((m) => `<article class="tarjeta"><h3>${m.fijado ? '📌 ' : ''}Mensaje ${m.mensaje_id || ''}</h3>
+        <small>${new Date(m.creado_en).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} · ${m.estado}${m.enlace ? ` · <a href="${escapar(m.enlace)}" target="_blank" rel="noopener">verlo en Telegram</a>` : ''}</small>
+        <pre>${escapar(m.texto || '')}</pre></article>`).join('');
+      return `<div class="kpis">${kpi(ultimo ? Math.max(0, ultimo.suscriptores - 1) : '—', 'suscriptores del canal (sin contar el bot)', '#229ed9')}${kpi(dif == null ? '—' : (dif >= 0 ? '+' : '') + dif, 'cambio desde la última medida', '#6b7280')}${kpi(msgs.length, 'mensajes publicados', '#0f766e')}</div>
+        <div class="tarjeta"><h3>✈️ Canal «Pepa family»</h3>
+          <p><a href="https://t.me/pepafamilyapp" target="_blank" rel="noopener">t.me/pepafamilyapp</a> · bot @pepafamily_bot (administrador, solo puede publicar).</p>
+          <small>Pepo publica novedades más o menos una vez al mes. Nadie se añade a mano: la gente se une por su cuenta con el enlace. Última medida: ${ultimo ? new Date(ultimo.creado_en).toLocaleString('es-ES') : 'sin datos'}.</small></div>
+        <h3>Mensajes publicados</h3>${lista || '<p class="vacio">Aún no hay mensajes.</p>'}`;
+    }
+
     function htmlEspera() {
       const filas = espera.map((e) => `<article class="tarjeta"><b><a href="mailto:${escapar(e.email)}">${escapar(e.email)}</a></b> <span class="estado ${e.estado}">${e.estado === 'pendiente' ? 'Por invitar' : e.estado === 'invitado' ? 'Invitado' : 'Descartado'}</span><br>
         <small>${e.nombre ? escapar(e.nombre) + ' · ' : ''}se apuntó el ${fecha(e.fecha + 'T12:00:00')}${e.origen ? ' · ' + escapar(e.origen) : ''}${e.codigo ? ' · código ' + escapar(e.codigo) : ''}</small>${e.mensaje ? `<br><small>💬 ${escapar(e.mensaje)}</small>` : ''}</article>`).join('');
@@ -161,7 +178,7 @@
     }
 
     function pintar() {
-      const cuerpo = vista === 'correos' ? htmlCorreos() : vista === 'contactos' ? htmlContactos() : vista === 'espera' ? htmlEspera() : htmlResumen();
+      const cuerpo = vista === 'correos' ? htmlCorreos() : vista === 'contactos' ? htmlContactos() : vista === 'espera' ? htmlEspera() : vista === 'telegram' ? htmlTelegram() : htmlResumen();
       const abiertos = [...document.querySelectorAll('#contenido details[open] summary')].map((s) => s.textContent);
       $('contenido').innerHTML = pestanas() + cuerpo;
       document.querySelectorAll('#contenido details').forEach((d) => { if (abiertos.includes(d.querySelector('summary').textContent)) d.open = true; });
