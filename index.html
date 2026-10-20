@@ -164,11 +164,20 @@
     function htmlCreadores() {
       const lista = contactos.filter((c) => c.nicho === 'crianza');
       const filas = lista.map((c) => {
-        const mail = c.email ? `<a class="principal" style="text-decoration:none;display:inline-block" href="mailto:${escapar(c.email)}?subject=${encodeURIComponent('Colaboración con Pepa: acceso gratis para ti')}&body=${encodeURIComponent(mensajeCreador(c))}">Escribir por correo</a>` : '';
+        const d = correos.find((x) => x.contacto_id === c.id);
+        const texto = d && d.cuerpo ? d.cuerpo : mensajeCreador(c);
+        const asunto = d && d.asunto ? d.asunto : 'Colaboración con Pepa: acceso gratis para ti';
+        const enviado = d && d.estado !== 'borrador';
+        const estilo = 'text-decoration:none;display:inline-block';
+        const abrir = c.email
+          ? `<a class="principal" style="${estilo}" href="mailto:${escapar(c.email)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}">✉️ Enviar por correo</a>`
+          : c.web ? `<a class="principal" style="${estilo}" target="_blank" rel="noopener" data-accion="creador_abrir" data-id="${c.id}" href="${escapar(c.web.includes('wa.me') ? c.web + '?text=' + encodeURIComponent(texto) : c.web)}">${c.web.includes('wa.me') ? '💬 Abrir WhatsApp con el mensaje' : '🔗 Abrir formulario / perfil'}</a>` : '';
         return `<article class="tarjeta"><h3>${escapar(c.nombre)}</h3>
-          <span class="estado ${c.estado}">${EST_CONTACTO[c.estado] || c.estado}</span><small>${escapar(c.fuente || '')}${c.email ? ' · ' + escapar(c.email) : ''}</small>
-          ${c.web ? `<br><small><a href="${escapar(c.web)}" target="_blank" rel="noopener">Ver perfil</a></small>` : ''}${c.notas ? `<br><small>📝 ${escapar(c.notas)}</small>` : ''}
-          <div class="acciones">${mail}<button class="principal" data-accion="creador_copiar" data-id="${c.id}">Copiar mensaje (DM)</button>
+          <span class="estado ${c.estado}">${EST_CONTACTO[c.estado] || c.estado}</span>${d ? `<span class="estado ${d.estado}">${EST_CORREO[d.estado] || d.estado}</span>` : ''}<small>${escapar(c.fuente || '')}${c.email ? ' · ' + escapar(c.email) : ''}</small>
+          ${c.notas ? `<br><small>📝 ${escapar(c.notas)}</small>` : ''}
+          <details><summary>Ver el mensaje preparado</summary><pre>${escapar(texto)}</pre></details>
+          <div class="acciones">${abrir}<button class="secundario" data-accion="creador_copiar" data-id="${c.id}">Copiar mensaje</button>
+            ${d && !enviado ? `<button class="secundario" data-accion="correo_enviado" data-id="${d.id}">Marcar como enviado</button>` : ''}
             <select data-accion="contacto_estado" data-id="${c.id}">${Object.entries(EST_CONTACTO).map(([k, v]) => `<option value="${k}" ${k === c.estado ? 'selected' : ''}>${v}</option>`).join('')}</select>
             <button class="secundario" data-accion="contacto_borrar" data-id="${c.id}">Quitar</button></div></article>`;
       }).join('');
@@ -249,7 +258,13 @@
         const fila = { para_nombre: v('c-nombre') || null, para_email: v('c-email') || null, asunto: v('c-asunto'), cuerpo: v('c-cuerpo') || null, estado: v('c-estado'), enviado_en: v('c-estado') === 'enviado' ? new Date().toISOString() : null };
         if (await guardar(sb.from('ventas_correos').insert(fila))) cargar(); return;
       }
-      if (a === 'correo_enviado') { if (await guardar(sb.from('ventas_correos').update({ estado: 'enviado', enviado_en: new Date().toISOString() }).eq('id', id))) cargar(); return; }
+      if (a === 'correo_enviado') {
+        const c = correos.find((x) => x.id === id);
+        if (await guardar(sb.from('ventas_correos').update({ estado: 'enviado', enviado_en: new Date().toISOString() }).eq('id', id))) {
+          if (c && c.contacto_id) await sb.from('ventas_contactos').update({ estado: 'contactado' }).eq('id', c.contacto_id);
+          cargar();
+        } return;
+      }
       if (a === 'correo_respuesta') {
         const t = prompt('Pega o resume la respuesta que ha llegado:'); if (!t) return;
         const c = correos.find((x) => x.id === id);
@@ -274,7 +289,8 @@
       }
       if (a === 'creador_copiar') {
         const c = contactos.find((x) => x.id === id); if (!c) return;
-        try { await navigator.clipboard.writeText(mensajeCreador(c)); avisar('Mensaje copiado. Pégalo en el DM.'); } catch { avisar('No se pudo copiar. Cópialo a mano.'); }
+        const d = correos.find((x) => x.contacto_id === c.id);
+        try { await navigator.clipboard.writeText(d && d.cuerpo ? d.cuerpo : mensajeCreador(c)); avisar('Mensaje copiado. Pégalo donde vayas a enviarlo.'); } catch { avisar('No se pudo copiar. Cópialo a mano.'); }
         return;
       }
       if (a === 'wa_medida') {
