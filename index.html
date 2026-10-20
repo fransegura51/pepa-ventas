@@ -95,7 +95,7 @@
     }
 
     function pestanas() {
-      const t = [['resumen', '📊 Resumen'], ['correos', `✉️ Correos (${correos.length})`], ['contactos', `🏢 Contactos (${contactos.length})`], ['espera', `📬 Lista de espera (${espera.length})`], ['telegram', '✈️ Telegram'], ['whatsapp', '💬 WhatsApp']];
+      const t = [['resumen', '📊 Resumen'], ['correos', `✉️ Correos (${correos.length})`], ['contactos', `🏢 Contactos (${contactos.length})`], ['creadores', `🌟 Creadores (${contactos.filter((c) => c.nicho === 'crianza').length})`],['espera', `📬 Lista de espera (${espera.length})`], ['telegram', '✈️ Telegram'], ['whatsapp', '💬 WhatsApp']];
       return `<div class="pestanas">${t.map(([k, n]) => `<button class="${k === vista ? 'activa' : ''}" data-accion="vista" data-vista="${k}">${n}</button>`).join('')}</div>`;
     }
 
@@ -156,6 +156,32 @@
         ${filas || '<p class="vacio">Todavía no hay contactos. Jennifer los irá apuntando aquí.</p>'}`;
     }
 
+    function mensajeCreador(c) {
+      const nombre = (c.nombre || '').replace(/^@/, '');
+      return `Hola ${nombre} 👋 Soy Jennifer, de Pepa Family. He visto tu contenido y me encanta lo real que lo cuentas.\n\nEstamos creando Pepa, una app para organizar la vida de la familia en un solo sitio: calendario, compra, presupuesto y tareas de los peques. Le puedes hablar en español y lee el ticket de la compra para actualizar el presupuesto sola.\n\nVamos a abrir la fase de prueba y nos gustaría que formaras parte, sin coste: una suscripción gratuita a cambio de tu opinión sincera. Sin obligación de publicar nada.\n\n¿Te mando el acceso? Un abrazo, Jennifer · Pepa Family`;
+    }
+
+    function htmlCreadores() {
+      const lista = contactos.filter((c) => c.nicho === 'crianza');
+      const filas = lista.map((c) => {
+        const mail = c.email ? `<a class="principal" style="text-decoration:none;display:inline-block" href="mailto:${escapar(c.email)}?subject=${encodeURIComponent('Colaboración con Pepa: acceso gratis para ti')}&body=${encodeURIComponent(mensajeCreador(c))}">Escribir por correo</a>` : '';
+        return `<article class="tarjeta"><h3>${escapar(c.nombre)}</h3>
+          <span class="estado ${c.estado}">${EST_CONTACTO[c.estado] || c.estado}</span><small>${escapar(c.fuente || '')}${c.email ? ' · ' + escapar(c.email) : ''}</small>
+          ${c.web ? `<br><small><a href="${escapar(c.web)}" target="_blank" rel="noopener">Ver perfil</a></small>` : ''}${c.notas ? `<br><small>📝 ${escapar(c.notas)}</small>` : ''}
+          <div class="acciones">${mail}<button class="principal" data-accion="creador_copiar" data-id="${c.id}">Copiar mensaje (DM)</button>
+            <select data-accion="contacto_estado" data-id="${c.id}">${Object.entries(EST_CONTACTO).map(([k, v]) => `<option value="${k}" ${k === c.estado ? 'selected' : ''}>${v}</option>`).join('')}</select>
+            <button class="secundario" data-accion="contacto_borrar" data-id="${c.id}">Quitar</button></div></article>`;
+      }).join('');
+      return `<p class="suave">Microcreadores de 1.000 a 10.000 seguidores. Ofrece acceso gratis a Pepa a cambio de su opinión. Los mensajes por Instagram o TikTok los envías tú; aquí quedan preparados y apuntas el estado.</p>
+        <details><summary>➕ Apuntar un creador</summary><form class="nuevo">
+          <input id="m-nombre" placeholder="Usuario (@nombre)"><input id="m-web" placeholder="Enlace al perfil (https://…)">
+          <select id="m-red"><option>Instagram</option><option>TikTok</option></select><input id="m-seg" type="number" min="0" placeholder="Seguidores aprox.">
+          <input id="m-email" type="email" placeholder="Correo de colaboraciones (si lo publica)">
+          <input id="m-tema" placeholder="Temática principal"><input id="m-reel" placeholder="Enlace a un reel reciente que encaje">
+          <div class="acciones"><button type="button" class="principal" data-accion="creador_add">Guardar creador</button></div></form></details>
+        ${filas || '<p class="vacio">Todavía no hay creadores. Apunta aquí los que encuentres.</p>'}`;
+    }
+
     function htmlTelegram() {
       const resumenes = telegram.filter((t) => t.tipo === 'resumen' && t.suscriptores != null);
       const ultimo = resumenes[0], anterior = resumenes[1];
@@ -201,7 +227,7 @@
     }
 
     function pintar() {
-      const cuerpo = vista === 'correos' ? htmlCorreos() : vista === 'contactos' ? htmlContactos() : vista === 'espera' ? htmlEspera() : vista === 'telegram' ? htmlTelegram() : vista === 'whatsapp' ? htmlWhatsapp() : htmlResumen();
+      const cuerpo = vista === 'correos' ? htmlCorreos() : vista === 'contactos' ? htmlContactos() : vista === 'creadores' ? htmlCreadores() :vista === 'espera' ? htmlEspera() : vista === 'telegram' ? htmlTelegram() : vista === 'whatsapp' ? htmlWhatsapp() : htmlResumen();
       const abiertos = [...document.querySelectorAll('#contenido details[open] summary')].map((s) => s.textContent);
       $('contenido').innerHTML = pestanas() + cuerpo;
       document.querySelectorAll('#contenido details').forEach((d) => { if (abiertos.includes(d.querySelector('summary').textContent)) d.open = true; });
@@ -238,6 +264,18 @@
         if (!v('k-nombre')) { avisar('Escribe el nombre de la organización.'); return; }
         const fila = { nombre: v('k-nombre'), nicho: v('k-nicho'), email: v('k-email') || null, web: v('k-web') || null, fuente: v('k-fuente') || null, notas: v('k-notas') || null };
         if (await guardar(sb.from('ventas_contactos').insert(fila))) cargar(); return;
+      }
+      if (a === 'creador_add') {
+        if (!v('m-nombre')) { avisar('Escribe el usuario del creador.'); return; }
+        const seg = v('m-seg') ? ` · ${Number(v('m-seg')).toLocaleString('es-ES')} seguidores` : '';
+        const notas = [v('m-tema') && `Temática: ${v('m-tema')}`, v('m-reel') && `Reel: ${v('m-reel')}`].filter(Boolean).join(' | ');
+        const fila = { nombre: v('m-nombre'), nicho: 'crianza', email: v('m-email') || null, web: v('m-web') || null, fuente: v('m-red') + seg, notas: notas || null };
+        if (await guardar(sb.from('ventas_contactos').insert(fila))) cargar(); return;
+      }
+      if (a === 'creador_copiar') {
+        const c = contactos.find((x) => x.id === id); if (!c) return;
+        try { await navigator.clipboard.writeText(mensajeCreador(c)); avisar('Mensaje copiado. Pégalo en el DM.'); } catch { avisar('No se pudo copiar. Cópialo a mano.'); }
+        return;
       }
       if (a === 'wa_medida') {
         const n = parseInt(v('w-seg'), 10); if (isNaN(n) || n < 0) { avisar('Escribe el número de seguidores.'); return; }
