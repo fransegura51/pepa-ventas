@@ -7,7 +7,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <title>Centro de Mando de Ventas</title>
+  <title>Pepa Ventas</title>
   <style>
     :root { --fondo: #f1f5f4; --tarjeta: #fff; --texto: #111827; --suave: #6b7280; --borde: #e5e7eb;
       --primario: #0f766e; --ok: #15803d; --aviso: #b45309; --error: #b91c1c; }
@@ -52,7 +52,7 @@
 </head>
 <body>
   <header>
-    <h1>📈 Ventas · Pepo</h1>
+    <h1>📈 Pepa Ventas</h1>
     <a href="https://fransegura51.github.io/centro-mando-redes/produccion.html">Producción</a>
   </header>
   <main>
@@ -73,28 +73,29 @@
     const EST_CONTACTO = { por_contactar: 'Por contactar', contactado: 'Contactado', respondio: 'Respondió', interesado: 'Interesado', no_interesa: 'No le interesa', baja: 'Baja (no escribir más)' };
     const EST_CORREO = { borrador: 'Borrador', enviado: 'Enviado', respondido: 'Respondido', pendiente_ti: 'Necesita tu respuesta', recibido: 'Recibido' };
     let vista = 'resumen', filtro = 'todos';
-    let contactos = [], correos = [], espera = [], telegram = [];
+    let contactos = [], correos = [], espera = [], telegram = [], whatsapp = [];
 
     const escapar = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const fecha = (f) => f ? new Date(f).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '';
     const avisar = (t) => { $('aviso').textContent = t || ''; $('aviso').hidden = !t; };
 
     async function cargar() {
-      const [a, b, c, d] = await Promise.all([
+      const [a, b, c, d, w] = await Promise.all([
         sb.from('ventas_contactos').select('*').order('creado_en', { ascending: false }),
         sb.from('ventas_correos').select('*').order('creado_en', { ascending: false }),
         sb.from('lista_espera').select('*').order('fecha', { ascending: false }),
         sb.from('ventas_telegram').select('*').order('creado_en', { ascending: false }),
+        sb.from('ventas_whatsapp').select('*').order('creado_en', { ascending: false }),
       ]);
-      const err = a.error || b.error || c.error || d.error;
+      const err = a.error || b.error || c.error || d.error || w.error;
       if (err) avisar('No se pudieron cargar los datos: ' + err.message); else avisar('');
-      contactos = a.data || []; correos = b.data || []; espera = c.data || []; telegram = d.data || [];
+      contactos = a.data || []; correos = b.data || []; espera = c.data || []; telegram = d.data || []; whatsapp = w.data || [];
       $('cargando').hidden = true; $('contenido').hidden = false;
       pintar();
     }
 
     function pestanas() {
-      const t = [['resumen', '📊 Resumen'], ['correos', `✉️ Correos (${correos.length})`], ['contactos', `🏢 Contactos (${contactos.length})`], ['espera', `📬 Lista de espera (${espera.length})`], ['telegram', '✈️ Telegram']];
+      const t = [['resumen', '📊 Resumen'], ['correos', `✉️ Correos (${correos.length})`], ['contactos', `🏢 Contactos (${contactos.length})`], ['espera', `📬 Lista de espera (${espera.length})`], ['telegram', '✈️ Telegram'], ['whatsapp', '💬 WhatsApp']];
       return `<div class="pestanas">${t.map(([k, n]) => `<button class="${k === vista ? 'activa' : ''}" data-accion="vista" data-vista="${k}">${n}</button>`).join('')}</div>`;
     }
 
@@ -123,7 +124,7 @@
       return `<article class="tarjeta" ${c.estado === 'pendiente_ti' ? 'style="border-color:#ef4444;border-width:2px"' : ''}><h3>${entrada ? '↩ ' : ''}${escapar(c.asunto)}</h3>
         <span class="estado ${c.estado}">${EST_CORREO[c.estado] || c.estado}</span><small>${quien}${c.enviado_en ? ' · enviado ' + fecha(c.enviado_en) : ''}${c.respuesta_en ? ' · respuesta ' + fecha(c.respuesta_en) : ''}${entrada ? ' · recibido ' + fecha(c.creado_en) : ''}</small>
         ${entrada && c.cuerpo ? `<pre>✉️ ${escapar(c.cuerpo)}</pre>` : ''}
-        ${c.respuesta ? `<pre>${entrada ? '🤖 Contestó Pepo: ' : '💬 '}${escapar(c.respuesta)}</pre>` : ''}
+        ${c.respuesta ? `<pre>${entrada ? '🤖 Contestó Jennifer: ' : '💬 '}${escapar(c.respuesta)}</pre>` : ''}
         ${!entrada && c.cuerpo ? `<details><summary>Ver el correo</summary><pre>${escapar(c.cuerpo)}</pre></details>` : ''}
         <div class="acciones">${acc}<button class="secundario" data-accion="correo_borrar" data-id="${c.id}">Quitar</button></div></article>`;
     }
@@ -152,7 +153,7 @@
           <input id="k-email" type="email" placeholder="Correo público de contacto"><input id="k-web" placeholder="Web (https://…)">
           <input id="k-fuente" placeholder="Fuente: dónde se ha encontrado el contacto"><textarea id="k-notas" rows="2" placeholder="Notas"></textarea>
           <div class="acciones"><button type="button" class="principal" data-accion="contacto_add">Guardar contacto</button></div></form></details>
-        ${filas || '<p class="vacio">Todavía no hay contactos. Pepo los irá apuntando aquí.</p>'}`;
+        ${filas || '<p class="vacio">Todavía no hay contactos. Jennifer los irá apuntando aquí.</p>'}`;
     }
 
     function htmlTelegram() {
@@ -167,7 +168,29 @@
       return `<div class="kpis">${kpi(ultimo ? Math.max(0, ultimo.suscriptores - 1) : '—', 'suscriptores del canal (sin contar el bot)', '#229ed9')}${kpi(dif == null ? '—' : (dif >= 0 ? '+' : '') + dif, 'cambio desde la última medida', '#6b7280')}${kpi(msgs.length, 'mensajes publicados', '#0f766e')}</div>
         <div class="tarjeta"><h3>✈️ Canal «Pepa family»</h3>
           <p><a href="https://t.me/pepafamilyapp" target="_blank" rel="noopener">t.me/pepafamilyapp</a> · bot @pepafamily_bot (administrador, solo puede publicar).</p>
-          <small>Pepo publica novedades más o menos una vez al mes. Nadie se añade a mano: la gente se une por su cuenta con el enlace. Última medida: ${ultimo ? new Date(ultimo.creado_en).toLocaleString('es-ES') : 'sin datos'}.</small></div>
+          <small>Jennifer publica novedades más o menos una vez al mes. Nadie se añade a mano: la gente se une por su cuenta con el enlace. Última medida: ${ultimo ? new Date(ultimo.creado_en).toLocaleString('es-ES') : 'sin datos'}.</small></div>
+        <h3>Mensajes publicados</h3>${lista || '<p class="vacio">Aún no hay mensajes.</p>'}`;
+    }
+
+    function htmlWhatsapp() {
+      const medidas = whatsapp.filter((t) => t.tipo === 'resumen' && t.seguidores != null);
+      const ultimo = medidas[0], anterior = medidas[1];
+      const msgs = whatsapp.filter((t) => t.tipo === 'mensaje');
+      const dif = ultimo && anterior ? ultimo.seguidores - anterior.seguidores : null;
+      const kpi = (num, txt, color) => `<div class="kpi" style="border-color:${color}"><b>${num}</b><span>${txt}</span></div>`;
+      const hist = medidas.slice(0, 8).map((m) => `<small>${fecha(m.creado_en)}: <b>${m.seguidores}</b></small>`).join(' · ');
+      const lista = msgs.map((m) => `<article class="tarjeta"><small>${fecha(m.creado_en)}${m.enlace ? ` · <a href="${escapar(m.enlace)}" target="_blank" rel="noopener">verlo en WhatsApp</a>` : ''}</small>
+        <pre>${escapar(m.texto || '')}</pre><div class="acciones"><button class="secundario" data-accion="wa_borrar" data-id="${m.id}">Quitar</button></div></article>`).join('');
+      return `<div class="kpis">${kpi(ultimo ? ultimo.seguidores : '—', 'seguidores del canal', '#25d366')}${kpi(dif == null ? '—' : (dif >= 0 ? '+' : '') + dif, 'cambio desde la última medida', '#6b7280')}${kpi(msgs.length, 'mensajes apuntados', '#0f766e')}</div>
+        <div class="tarjeta"><h3>💬 Canal de WhatsApp</h3>
+          <small>WhatsApp no deja leer las estadísticas por programa: mira el número de seguidores en tu canal y apúntalo aquí para ver la evolución.${ultimo ? ' Última medida: ' + new Date(ultimo.creado_en).toLocaleString('es-ES') + '.' : ''}</small>
+          ${hist ? `<br>${hist}` : ''}</div>
+        <details><summary>➕ Apuntar seguidores de hoy</summary><form class="nuevo">
+          <input id="w-seg" type="number" min="0" placeholder="Seguidores del canal ahora">
+          <div class="acciones"><button type="button" class="principal" data-accion="wa_medida">Guardar</button></div></form></details>
+        <details><summary>➕ Apuntar un mensaje publicado</summary><form class="nuevo">
+          <textarea id="w-texto" rows="3" placeholder="Texto del mensaje"></textarea><input id="w-enlace" placeholder="Enlace al mensaje (opcional)">
+          <div class="acciones"><button type="button" class="principal" data-accion="wa_msg">Guardar</button></div></form></details>
         <h3>Mensajes publicados</h3>${lista || '<p class="vacio">Aún no hay mensajes.</p>'}`;
     }
 
@@ -178,7 +201,7 @@
     }
 
     function pintar() {
-      const cuerpo = vista === 'correos' ? htmlCorreos() : vista === 'contactos' ? htmlContactos() : vista === 'espera' ? htmlEspera() : vista === 'telegram' ? htmlTelegram() : htmlResumen();
+      const cuerpo = vista === 'correos' ? htmlCorreos() : vista === 'contactos' ? htmlContactos() : vista === 'espera' ? htmlEspera() : vista === 'telegram' ? htmlTelegram() : vista === 'whatsapp' ? htmlWhatsapp() : htmlResumen();
       const abiertos = [...document.querySelectorAll('#contenido details[open] summary')].map((s) => s.textContent);
       $('contenido').innerHTML = pestanas() + cuerpo;
       document.querySelectorAll('#contenido details').forEach((d) => { if (abiertos.includes(d.querySelector('summary').textContent)) d.open = true; });
@@ -216,6 +239,15 @@
         const fila = { nombre: v('k-nombre'), nicho: v('k-nicho'), email: v('k-email') || null, web: v('k-web') || null, fuente: v('k-fuente') || null, notas: v('k-notas') || null };
         if (await guardar(sb.from('ventas_contactos').insert(fila))) cargar(); return;
       }
+      if (a === 'wa_medida') {
+        const n = parseInt(v('w-seg'), 10); if (isNaN(n) || n < 0) { avisar('Escribe el número de seguidores.'); return; }
+        if (await guardar(sb.from('ventas_whatsapp').insert({ tipo: 'resumen', seguidores: n }))) cargar(); return;
+      }
+      if (a === 'wa_msg') {
+        if (!v('w-texto')) { avisar('Escribe el texto del mensaje.'); return; }
+        if (await guardar(sb.from('ventas_whatsapp').insert({ tipo: 'mensaje', texto: v('w-texto'), enlace: v('w-enlace') || null }))) cargar(); return;
+      }
+      if (a === 'wa_borrar') { if (!confirm('¿Quitar este mensaje?')) return; if (await guardar(sb.from('ventas_whatsapp').delete().eq('id', id))) cargar(); return; }
       if (a === 'contacto_borrar') { if (!confirm('¿Quitar este contacto?')) return; if (await guardar(sb.from('ventas_contactos').delete().eq('id', id))) cargar(); return; }
     });
     document.addEventListener('change', async (ev) => {

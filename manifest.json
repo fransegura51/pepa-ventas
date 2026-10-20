@@ -1,7 +1,7 @@
 {
   "id": "centro-mando-ventas-app",
-  "name": "Centro de Mando de Ventas",
-  "short_name": "Ventas",
+  "name": "Pepa Ventas",
+  "short_name": "Pepa Ventas",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
