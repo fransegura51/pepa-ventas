@@ -72,7 +72,7 @@
     const NICHOS = { ampa: 'AMPA / colegios', familias_numerosas: 'Familias numerosas', crianza: 'Crianza (blogs y creadores)', custodia: 'Custodia compartida', otros: 'Otros' };
     const EST_CONTACTO = { por_contactar: 'Por contactar', contactado: 'Contactado', respondio: 'Respondió', interesado: 'Interesado', no_interesa: 'No le interesa', baja: 'Baja (no escribir más)' };
     const EST_CORREO = { borrador: 'Borrador', enviado: 'Enviado', respondido: 'Respondido', pendiente_ti: 'Necesita tu respuesta', recibido: 'Recibido' };
-    let vista = 'resumen', filtro = 'todos';
+    let vista = 'resumen', filtro = 'todos', filtroCre = 'hoy';
     let contactos = [], correos = [], espera = [], telegram = [], whatsapp = [];
 
     const escapar = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -95,7 +95,7 @@
     }
 
     function pestanas() {
-      const t = [['resumen', '📊 Resumen'], ['correos', `✉️ Correos (${correos.length})`], ['contactos', `🏢 Contactos (${contactos.length})`], ['creadores', `🌟 Creadores (${contactos.filter((c) => c.nicho === 'crianza').length})`],['espera', `📬 Lista de espera (${espera.length})`], ['telegram', '✈️ Telegram'], ['whatsapp', '💬 WhatsApp']];
+      const t = [['resumen', '📊 Resumen'], ['correos', `✉️ Correos (${correos.length})`], ['contactos', `🏢 Contactos (${contactos.length})`], ['creadores', `🌟 Creadores (${contactos.filter((c) => c.nicho === 'crianza' || c.nicho === 'ampa').length})`],['espera', `📬 Lista de espera (${espera.length})`], ['telegram', '✈️ Telegram'], ['whatsapp', '💬 WhatsApp']];
       return `<div class="pestanas">${t.map(([k, n]) => `<button class="${k === vista ? 'activa' : ''}" data-accion="vista" data-vista="${k}">${n}</button>`).join('')}</div>`;
     }
 
@@ -161,34 +161,60 @@
       return `Hola ${nombre} 👋 Soy Paco, de Pepa Family. He visto tu contenido y me encanta lo real que lo cuentas.\n\nEstamos creando Pepa, una app para organizar la vida de la familia en un solo sitio: calendario, compra, presupuesto y tareas de los peques. Le puedes hablar en español y lee el ticket de la compra para actualizar el presupuesto sola.\n\nVamos a abrir la fase de prueba y nos gustaría que formaras parte, sin coste: una suscripción gratuita a cambio de tu opinión sincera. Sin obligación de publicar nada.\n\n¿Te mando el acceso? Un abrazo, Paco · Pepa Family`;
     }
 
+    function canalesDe(c, texto, asunto) {
+      const estilo = 'text-decoration:none;display:inline-block';
+      const n = c.notas || '';
+      const tg = (n.match(/Telegram: (https?:\/\/t\.me\/\S+)/) || [])[1];
+      const waUrl = (n.match(/WhatsApp: (https?:\/\/\S+)/) || [])[1];
+      const tel = ((n.match(/Tel: ([\d +]+)/) || [])[1] || '').replace(/\D/g, '');
+      const movil = /^(34)?[67]\d{8}$/.test(tel) ? (tel.length === 9 ? '34' + tel : tel) : null;
+      const b = [];
+      if (c.email) b.push(`<a class="principal" style="${estilo}" data-accion="creador_abrir" data-id="${c.id}" href="mailto:${escapar(c.email)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}">✉️ Correo</a>`);
+      if (tg) b.push(`<a class="principal" style="${estilo}" target="_blank" rel="noopener" data-accion="creador_abrir" data-id="${c.id}" href="${escapar(tg)}">✈️ Telegram (se copia el mensaje)</a>`);
+      if (waUrl || movil) {
+        const href = waUrl ? (waUrl.includes('wa.me') ? waUrl + '?text=' + encodeURIComponent(texto) : waUrl) : 'https://wa.me/' + movil + '?text=' + encodeURIComponent(texto);
+        b.push(`<a class="principal" style="${estilo}" target="_blank" rel="noopener" data-accion="creador_abrir" data-id="${c.id}" href="${escapar(href)}">💬 WhatsApp</a>`);
+      }
+      if (!c.email && c.web) b.push(`<a class="principal" style="${estilo}" target="_blank" rel="noopener" data-accion="creador_abrir" data-id="${c.id}" href="${escapar(c.web)}">🔗 Abrir formulario / web (se copia el mensaje)</a>`);
+      return b.join('');
+    }
+
+    function tarjetaCreador(c) {
+      const d = correos.find((x) => x.contacto_id === c.id);
+      const texto = d && d.cuerpo ? d.cuerpo : mensajeCreador(c);
+      const asunto = d && d.asunto ? d.asunto : 'Colaboración con Pepa: acceso gratis para ti';
+      const enviado = d && d.estado !== 'borrador';
+      return `<article class="tarjeta"><h3>${escapar(c.nombre)}</h3>
+        <span class="estado ${c.estado}">${EST_CONTACTO[c.estado] || c.estado}</span>${d ? `<span class="estado ${d.estado}">${EST_CORREO[d.estado] || d.estado}</span>` : ''}<small>${escapar(c.fuente || '')}${c.email ? ' · ' + escapar(c.email) : ''}</small>
+        ${c.notas ? `<details><summary>Datos del contacto</summary><pre>${escapar(c.notas)}</pre></details>` : ''}
+        <details><summary>Ver el mensaje preparado</summary><pre>${escapar(texto)}</pre></details>
+        <div class="acciones">${canalesDe(c, texto, asunto)}<button class="secundario" data-accion="creador_copiar" data-id="${c.id}">Copiar mensaje</button>
+          ${d && !enviado ? `<button class="secundario" data-accion="correo_enviado" data-id="${d.id}">Marcar como enviado</button>` : ''}
+          <select data-accion="contacto_estado" data-id="${c.id}">${Object.entries(EST_CONTACTO).map(([k, v]) => `<option value="${k}" ${k === c.estado ? 'selected' : ''}>${v}</option>`).join('')}</select>
+          <button class="secundario" data-accion="contacto_borrar" data-id="${c.id}">Quitar</button></div></article>`;
+    }
+
     function htmlCreadores() {
-      const lista = contactos.filter((c) => c.nicho === 'crianza');
-      const filas = lista.map((c) => {
-        const d = correos.find((x) => x.contacto_id === c.id);
-        const texto = d && d.cuerpo ? d.cuerpo : mensajeCreador(c);
-        const asunto = d && d.asunto ? d.asunto : 'Colaboración con Pepa: acceso gratis para ti';
-        const enviado = d && d.estado !== 'borrador';
-        const estilo = 'text-decoration:none;display:inline-block';
-        const abrir = c.email
-          ? `<a class="principal" style="${estilo}" href="mailto:${escapar(c.email)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}">✉️ Enviar por correo</a>`
-          : c.web ? `<a class="principal" style="${estilo}" target="_blank" rel="noopener" data-accion="creador_abrir" data-id="${c.id}" href="${escapar(c.web.includes('wa.me') ? c.web + '?text=' + encodeURIComponent(texto) : c.web)}">${c.web.includes('wa.me') ? '💬 Abrir WhatsApp con el mensaje' : '🔗 Abrir formulario / perfil'}</a>` : '';
-        return `<article class="tarjeta"><h3>${escapar(c.nombre)}</h3>
-          <span class="estado ${c.estado}">${EST_CONTACTO[c.estado] || c.estado}</span>${d ? `<span class="estado ${d.estado}">${EST_CORREO[d.estado] || d.estado}</span>` : ''}<small>${escapar(c.fuente || '')}${c.email ? ' · ' + escapar(c.email) : ''}</small>
-          ${c.notas ? `<br><small>📝 ${escapar(c.notas)}</small>` : ''}
-          <details><summary>Ver el mensaje preparado</summary><pre>${escapar(texto)}</pre></details>
-          <div class="acciones">${abrir}<button class="secundario" data-accion="creador_copiar" data-id="${c.id}">Copiar mensaje</button>
-            ${d && !enviado ? `<button class="secundario" data-accion="correo_enviado" data-id="${d.id}">Marcar como enviado</button>` : ''}
-            <select data-accion="contacto_estado" data-id="${c.id}">${Object.entries(EST_CONTACTO).map(([k, v]) => `<option value="${k}" ${k === c.estado ? 'selected' : ''}>${v}</option>`).join('')}</select>
-            <button class="secundario" data-accion="contacto_borrar" data-id="${c.id}">Quitar</button></div></article>`;
-      }).join('');
-      return `<p class="suave">Microcreadores de 1.000 a 10.000 seguidores. Ofrece acceso gratis a Pepa a cambio de su opinión. Los mensajes por Instagram o TikTok los envías tú; aquí quedan preparados y apuntas el estado.</p>
+      const todos = contactos.filter((c) => c.nicho === 'crianza' || c.nicho === 'ampa');
+      const pend = todos.filter((c) => c.estado === 'por_contactar');
+      const hoy = [...pend].sort((a, b) => (a.email ? 0 : 1) - (b.email ? 0 : 1)).slice(0, 4);
+      const lista = filtroCre === 'hoy' ? hoy
+        : filtroCre === 'creadora' ? todos.filter((c) => c.nicho === 'crianza')
+        : filtroCre === 'ampa' ? todos.filter((c) => c.nicho === 'ampa')
+        : filtroCre === 'pendientes' ? pend
+        : filtroCre === 'contactados' ? todos.filter((c) => c.estado !== 'por_contactar')
+        : todos;
+      const chips = [['hoy', `Hoy toca (${hoy.length})`], ['pendientes', `Por contactar (${pend.length})`], ['contactados', `Ya contactados (${todos.length - pend.length})`], ['creadora', 'Creadoras'], ['ampa', 'AMPAs'], ['todos', `Todos (${todos.length})`]]
+        .map(([k, n]) => `<button class="${k === filtroCre ? 'activa' : ''}" data-accion="filtro_cre" data-filtro="${k}">${n}</button>`).join('');
+      return `<p class="suave">Creadoras y AMPAs. «Hoy toca» te enseña los 4 siguientes (primero los que tienen correo). Cada botón abre el canal con el mensaje listo; los envíos los haces tú y luego pulsas «Marcar como enviado».</p>
+        <div class="chips">${chips}</div>
         <details><summary>➕ Apuntar un creador</summary><form class="nuevo">
-          <input id="m-nombre" placeholder="Usuario (@nombre)"><input id="m-web" placeholder="Enlace al perfil (https://…)">
-          <select id="m-red"><option>Instagram</option><option>TikTok</option></select><input id="m-seg" type="number" min="0" placeholder="Seguidores aprox.">
+          <input id="m-nombre" placeholder="Usuario o nombre"><input id="m-web" placeholder="Enlace al perfil o web (https://…)">
+          <select id="m-red"><option>Instagram</option><option>TikTok</option><option>Telegram</option><option>WhatsApp</option><option>Web / blog</option></select><input id="m-seg" type="number" min="0" placeholder="Seguidores aprox.">
           <input id="m-email" type="email" placeholder="Correo de colaboraciones (si lo publica)">
           <input id="m-tema" placeholder="Temática principal"><input id="m-reel" placeholder="Enlace a un reel reciente que encaje">
           <div class="acciones"><button type="button" class="principal" data-accion="creador_add">Guardar creador</button></div></form></details>
-        ${filas || '<p class="vacio">Todavía no hay creadores. Apunta aquí los que encuentres.</p>'}`;
+        ${lista.map(tarjetaCreador).join('') || '<p class="vacio">No hay contactos en esta lista.</p>'}`;
     }
 
     function htmlTelegram() {
@@ -253,6 +279,12 @@
       const a = b.dataset.accion, id = b.dataset.id, v = (x) => ($(x).value || '').trim();
       if (a === 'vista') { vista = b.dataset.vista; pintar(); return; }
       if (a === 'filtro') { filtro = b.dataset.filtro; pintar(); return; }
+      if (a === 'filtro_cre') { filtroCre = b.dataset.filtro; pintar(); return; }
+      if (a === 'creador_abrir') {
+        const c0 = contactos.find((x) => x.id === id); const d0 = c0 && correos.find((x) => x.contacto_id === c0.id);
+        try { await navigator.clipboard.writeText(d0 && d0.cuerpo ? d0.cuerpo : (c0 ? mensajeCreador(c0) : '')); avisar('Mensaje copiado: pégalo si el canal no lo trae puesto.'); } catch { /* sin portapapeles */ }
+        return;
+      }
       if (a === 'correo_add') {
         if (!v('c-asunto')) { avisar('Escribe el asunto.'); return; }
         const fila = { para_nombre: v('c-nombre') || null, para_email: v('c-email') || null, asunto: v('c-asunto'), cuerpo: v('c-cuerpo') || null, estado: v('c-estado'), enviado_en: v('c-estado') === 'enviado' ? new Date().toISOString() : null };
