@@ -185,7 +185,7 @@
       const asunto = d && d.asunto ? d.asunto : 'Colaboración con Pepa: acceso gratis para ti';
       const enviado = d && d.estado !== 'borrador';
       return `<article class="tarjeta"><h3>${escapar(c.nombre)}</h3>
-        <span class="estado ${c.estado}">${EST_CONTACTO[c.estado] || c.estado}</span>${d ? `<span class="estado ${d.estado}">${EST_CORREO[d.estado] || d.estado}</span>` : ''}<small>${escapar(c.fuente || '')}${c.email ? ' · ' + escapar(c.email) : ''}</small>
+        ${(c.notas || "").startsWith("PRIORIDAD") && c.estado === "por_contactar" ? `<span class="estado pendiente_ti">⭐ Hoy</span>` : ""}<span class="estado ${c.estado}">${EST_CONTACTO[c.estado] || c.estado}</span>${d ? `<span class="estado ${d.estado}">${EST_CORREO[d.estado] || d.estado}</span>` : ''}<small>${escapar(c.fuente || '')}${c.email ? ' · ' + escapar(c.email) : ''}</small>
         ${c.notas ? `<details><summary>Datos del contacto</summary><pre>${escapar(c.notas)}</pre></details>` : ''}
         <details><summary>Ver el mensaje preparado</summary><pre>${escapar(texto)}</pre></details>
         <div class="acciones">${canalesDe(c, texto, asunto)}<button class="secundario" data-accion="creador_copiar" data-id="${c.id}">Copiar mensaje</button>
@@ -197,7 +197,9 @@
     function htmlCreadores() {
       const todos = contactos.filter((c) => c.nicho === 'crianza' || c.nicho === 'ampa');
       const pend = todos.filter((c) => c.estado === 'por_contactar');
-      const hoy = [...pend].sort((a, b) => (a.email ? 0 : 1) - (b.email ? 0 : 1)).slice(0, 4);
+      const esPrio = (c) => (c.notas || '').startsWith('PRIORIDAD');
+      const prio = pend.filter(esPrio).sort((a, b) => (a.email ? 0 : 1) - (b.email ? 0 : 1));
+      const hoy = prio.length ? prio : [...pend].sort((a, b) => (a.email ? 0 : 1) - (b.email ? 0 : 1)).slice(0, 4);
       const lista = filtroCre === 'hoy' ? hoy
         : filtroCre === 'creadora' ? todos.filter((c) => c.nicho === 'crianza')
         : filtroCre === 'ampa' ? todos.filter((c) => c.nicho === 'ampa')
