@@ -103,12 +103,12 @@
       const n = (e) => correos.filter((c) => c.estado === e && (e !== 'respondido' || true)).length;
       const kpi = (num, txt, color) => `<div class="kpi" style="border-color:${color || '#0f766e'}"><b>${num}</b><span>${txt}</span></div>`;
       const pend = espera.filter((e) => e.estado === 'pendiente').length;
-      const pct = Math.min(100, Math.round(espera.length / 20 * 100));
+      const pct = Math.min(100, Math.round(espera.length / 50 * 100));
       const ultimos = espera.slice(0, 5).map((e) => `<div class="tarjeta"><b>${escapar(e.email)}</b><br><small>${e.nombre ? escapar(e.nombre) + ' · ' : ''}${fecha(e.fecha + 'T12:00:00')}${e.origen ? ' · ' + escapar(e.origen) : ''}</small></div>`).join('');
       const resp = correos.filter((c) => c.estado === 'respondido').slice(0, 3).map(tarjetaCorreo).join('');
       const urgentes = correos.filter((c) => c.estado === 'pendiente_ti').map(tarjetaCorreo).join('');
       return `${urgentes ? `<h3>⚠ Necesitan tu respuesta (${n('pendiente_ti')})</h3>${urgentes}` : ''}<div class="kpis">${kpi(n('pendiente_ti'), 'necesitan tu respuesta', '#e53935')}${kpi(espera.length, 'personas en la lista de espera', '#7c3aed')}${kpi(pend, 'por invitar', '#e8a317')}${kpi(contactos.length, 'contactos de ventas')}${kpi(correos.filter((c) => c.direccion === 'entrada').length, 'correos recibidos', '#6b7280')}${kpi(n('borrador'), 'correos en borrador', '#e8a317')}${kpi(n('enviado'), 'correos enviados', '#2563eb')}${kpi(n('respondido'), 'respuestas', '#15803d')}</div>
-        <div class="tarjeta"><b>Las 20 primeras familias, gratis</b><br><small>${Math.min(espera.length, 20)} de 20 plazas con alguien apuntado en la web</small>
+        <div class="tarjeta"><b>Las 50 primeras familias, gratis</b><br><small>${Math.min(espera.length, 50)} de 50 plazas con alguien apuntado en la web</small>
           <div class="barra" style="margin-top:8px"><i style="width:${pct}%"></i></div></div>
         <h3>📬 Últimos que se han apuntado</h3>${ultimos || '<p class="vacio">Nadie todavía.</p>'}
         <h3>💬 Últimas respuestas</h3>${resp || '<p class="vacio">Aún no hay respuestas.</p>'}`;
