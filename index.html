@@ -34,6 +34,7 @@
     .estado.recibido { background: #e5e7eb; }
     .estado.respondido, .estado.respondio, .estado.interesado { background: #dcfce7; }
     .estado.no_interesa, .estado.baja { background: #fee2e2; }
+    .estado.pausado { background: #e5e7eb; color: #374151; }
     .estado.pendiente { background: #fef9c3; } .estado.invitado { background: #dcfce7; }
     .acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
     button.principal, button.secundario { font: inherit; border-radius: 8px; padding: 9px 12px; cursor: pointer; border: 1px solid var(--primario); }
@@ -70,7 +71,7 @@
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
     });
     const NICHOS = { ampa: 'AMPA / colegios', familias_numerosas: 'Familias numerosas', crianza: 'Crianza (blogs y creadores)', custodia: 'Custodia compartida', otros: 'Otros' };
-    const EST_CONTACTO = { por_contactar: 'Por contactar', contactado: 'Contactado', respondio: 'Respondió', interesado: 'Interesado', no_interesa: 'No le interesa', baja: 'Baja (no escribir más)' };
+    const EST_CONTACTO = { por_contactar: 'Por contactar', contactado: 'Contactado', respondio: 'Respondió', interesado: 'Interesado', no_interesa: 'No le interesa', baja: 'Baja (no escribir más)', pausado: 'Pausado (consulta legal)' };
     const EST_CORREO = { borrador: 'Borrador', enviado: 'Enviado', respondido: 'Respondido', pendiente_ti: 'Necesita tu respuesta', recibido: 'Recibido' };
     let vista = 'resumen', filtro = 'todos', filtroCre = 'hoy';
     let contactos = [], correos = [], espera = [], telegram = [], whatsapp = [];
